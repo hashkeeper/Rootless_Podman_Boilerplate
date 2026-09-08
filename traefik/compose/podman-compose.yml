@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: docker.io/traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    
+    security_opt:
+      - label=disable
+    
+    command:
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.traefik.address=:8080"
+
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--log.level=DEBUG"
+
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=eddie@hashkeeper.dev"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    
+    volumes:
+      - "/run/user/1001/podman/podman.sock:/var/run/docker.sock:ro,z"
+      - "./dynamic:/etc/traefik/dynamic:ro,z"
+      - "./logs:/var/log/traefik:z"
+      - "./letsencrypt:/letsencrypt:z"
+    
+    networks:
+      - traefik-network
+
+networks:
+  traefik-network:
+    external: true
