@@ -1,0 +1,23 @@
+[Unit]
+Description=Traefik Reverse Proxy
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+TimeoutStartSec=60
+Restart=on-failure
+RestartSec=10
+KillMode=mixed
+Delegate=yes
+SyslogIdentifier=traefik
+
+Environment=PODMAN_SYSTEMD_UNIT=%n
+
+ExecStart=/usr/bin/podman run --name traefik --replace --rm --cgroups=split --network=host --sdnotify=conmon -d --security-opt label=disable -v /run/user/1001/podman/podman.sock:/var/run/docker.sock:Z -v /home/hash/traefik/dynamic:/etc/traefik/dynamic:Z -v /home/hash/traefik/letsencrypt:/letsencrypt:Z -v /home/hash/traefik/logs:/var/log/traefik:Z --publish 80:80 --publish 443:443 --publish 8080:8080 --label traefik.enable=true --label traefik.http.middlewares.dashboard-auth.basicauth.users=admin:$$apr1$$xK2vvmmU$$D1u6imF3PBAMkz6w.CNBo/ --label traefik.http.routers.dashboard.entrypoints=websecure --label traefik.http.routers.dashboard.middlewares=dashboard-auth --label traefik.http.routers.dashboard.rule=Host(`traefik.hashkeeper.dev`) --label traefik.http.routers.dashboard.service=api@internal --label traefik.http.routers.dashboard.tls=true --label traefik.http.routers.dashboard.tls.certresolver=letsencrypt docker.io/traefik:v3.0 --entrypoints.traefik.address=:8080 --entrypoints.web.address=:80 --entrypoints.websecure.address=:443 --providers.docker=true --providers.docker.exposedbydefault=false --providers.docker.endpoint=unix:///var/run/docker.sock --providers.file.directory=/etc/traefik/dynamic --providers.file.watch=true --api.dashboard=true --api.insecure=true --log.level=INFO --accesslog=true --accesslog.filePath=/var/log/traefik/access.log --certificatesresolvers.letsencrypt.acme.httpchallenge=true --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web --certificatesresolvers.letsencrypt.acme.email=eddie@hashkeeper.dev --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json --certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory --entrypoints.web.http.redirections.entrypoint.to=websecure --entrypoints.web.http.redirections.entrypoint.scheme=https
+ExecStop=/usr/bin/podman stop -t 10 traefik
+ExecStopPost=-/usr/bin/podman rm -f -v traefik
+
+[Install]
+WantedBy=default.target

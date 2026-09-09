@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  website:
+    image: docker.io/nginx:alpine
+    container_name: hashkeeper.dev
+    restart: unless-stopped
+    
+    volumes:
+      - ./site-files:/usr/share/nginx/html:ro,z
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro,z
+    
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${SITE_NAME}-https.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${SITE_NAME}-https.entrypoints=websecure"
+      - "traefik.http.routers.${SITE_NAME}-https.tls=true"
+      - "traefik.http.routers.${SITE_NAME}-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${SITE_NAME}-https.service=${SITE_NAME}-service"
+      - "traefik.http.services.${SITE_NAME}-service.loadbalancer.server.port=80"
+      - "traefik.http.routers.${SITE_NAME}-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${SITE_NAME}-http.entrypoints=web"
+      - "traefik.http.routers.${SITE_NAME}-http.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.${SITE_NAME}-http.service=${SITE_NAME}-service"
+    
+    networks:
+      - traefik-network
+
+networks:
+  traefik-network:
+    external: true
