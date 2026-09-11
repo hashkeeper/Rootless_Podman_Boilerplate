@@ -1,52 +1,85 @@
-version: '3.8'
+version: "3.8"
 
 services:
   traefik:
     image: docker.io/traefik:v3.0
     container_name: traefik
     restart: unless-stopped
-    
+
     security_opt:
       - label=disable
-    
+
     command:
+      # API and dashboard
+      - "--api.dashboard=true"
+      - "--api.debug=false"
+
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.traefik.address=:8080"
 
+      # Docker/Podman provider
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.network=traefik-network"
+
+      # File provider
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
 
-      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
-
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      
-      - "--log.level=DEBUG"
-      - "--log.filePath=/var/log/traefik/traefik.log"
+      # Logging
+      - "--log.level=INFO"
+      - "--log.format=json"
       - "--accesslog=true"
-      - "--accesslog.filePath=/var/log/traefik/access.log"
+      - "--accesslog.format=json"
 
+      # Let's Encrypt
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.email=eddie@hashkeeper.dev"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+
+      # Server transport
+      - "--serverstransport.maxidleconnsperhost=100"
+      - "--serverstransport.forwardingtimeouts.idleconntimeout=120s"
+
+      # HTTP to HTTPS redirect
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+
+    labels:
+      - "traefik.enable=true"
+
+      # Dashboard router
+      - "traefik.http.routers.dashboard.rule=Host(`${SUBDOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.middlewares=hsts-headers,dashboard-auth"
+
+      # Dashboard authentication
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=whodie:$$2y$$05$$zVoBvp7gKhBJDAgV6uB5AuIY9GTv.Aw0JDY7eysp.CB3BFTRXUFtC"
+
+      # Security headers
+      - "traefik.http.middlewares.hsts-headers.headers.customFrameOptionsValue=SAMEORIGIN"
+      - "traefik.http.middlewares.hsts-headers.headers.stsSeconds=63072000"
+      - "traefik.http.middlewares.hsts-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.hsts-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.hsts-headers.headers.forceSTSHeader=true"
 
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
-    
+
     volumes:
-      - "/run/user/1001/podman/podman.sock:/var/run/docker.sock:ro,z"
+      - "/run/user/1001/podman/podman.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt:Z"
       - "./dynamic:/etc/traefik/dynamic:ro,z"
-      - "./logs:/var/log/traefik:z"
-      - "./letsencrypt:/letsencrypt:z"
-    
+      - "./logs:/var/log:ro,z"
+
     networks:
       - traefik-network
 
