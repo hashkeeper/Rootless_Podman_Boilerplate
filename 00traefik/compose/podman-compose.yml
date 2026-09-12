@@ -1,14 +1,8 @@
-version: "3.8"
-
 services:
   traefik:
-    image: docker.io/traefik:v3.0
+    image: docker.io/traefik:v3.7
     container_name: traefik
     restart: unless-stopped
-
-    security_opt:
-      - label=disable
-
     command:
       # API and dashboard
       - "--api.dashboard=true"
@@ -20,34 +14,18 @@ services:
       # Docker/Podman provider
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.network=traefik-network"
-
-      # File provider
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-
-      # Logging
-      - "--log.level=INFO"
-      - "--log.format=json"
-      - "--accesslog=true"
-      - "--accesslog.format=json"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
 
       # Let's Encrypt
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencrypt.acme.email=eddie@hashkeeper.dev"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
-
-      # Server transport
-      - "--serverstransport.maxidleconnsperhost=100"
-      - "--serverstransport.forwardingtimeouts.idleconntimeout=120s"
 
       # HTTP to HTTPS redirect
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
 
     labels:
       - "traefik.enable=true"
@@ -58,9 +36,7 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dashboard.middlewares=hsts-headers,dashboard-auth"
-
-      # Dashboard authentication
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth,hsts-headers"
       - "traefik.http.middlewares.dashboard-auth.basicauth.users=whodie:$$2y$$05$$zVoBvp7gKhBJDAgV6uB5AuIY9GTv.Aw0JDY7eysp.CB3BFTRXUFtC"
 
       # Security headers
@@ -73,12 +49,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "127.0.0.1:8080:8080"
 
     volumes:
-      - "/run/user/1001/podman/podman.sock:/var/run/docker.sock:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./letsencrypt:/letsencrypt:Z"
-      - "./dynamic:/etc/traefik/dynamic:ro,z"
-      - "./logs:/var/log:ro,z"
+      - "./traefik.yml:/etc/traefik/traefik.yml:ro"
 
     networks:
       - traefik-network

@@ -1,28 +1,34 @@
-version: '3.8'
-
 services:
   website:
     image: docker.io/nginx:alpine
     container_name: hashkeeper.dev
     restart: unless-stopped
-    
+
     volumes:
-      - ./site-files:/usr/share/nginx/html:ro,z
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro,z
-    
+      - ./site-files:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.${SITE_NAME}-https.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.${SITE_NAME}-https.entrypoints=websecure"
-      - "traefik.http.routers.${SITE_NAME}-https.tls=true"
-      - "traefik.http.routers.${SITE_NAME}-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.${SITE_NAME}-https.service=${SITE_NAME}-service"
-      - "traefik.http.services.${SITE_NAME}-service.loadbalancer.server.port=80"
-      - "traefik.http.routers.${SITE_NAME}-http.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.${SITE_NAME}-http.entrypoints=web"
-      - "traefik.http.routers.${SITE_NAME}-http.middlewares=redirect-to-https@file"
-      - "traefik.http.routers.${SITE_NAME}-http.service=${SITE_NAME}-service"
-    
+      - "traefik.docker.network=traefik-network"
+
+      # HTTPS router — matches BOTH hostnames
+      - "traefik.http.routers.${SITENAME}-https.rule=Host(`${DOMAIN}`) || Host(`${SUBDOMAIN}`)"
+      - "traefik.http.routers.${SITENAME}-https.entrypoints=websecure"
+      - "traefik.http.routers.${SITENAME}-https.tls=true"
+      - "traefik.http.routers.${SITENAME}-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${SITENAME}-https.service=${SITENAME}-service"
+
+      # Optionally pin the certificate to cover both names explicitly
+      - "traefik.http.routers.${SITENAME}-https.tls.domains[0].main=${DOMAIN}"
+      - "traefik.http.routers.${SITENAME}-https.tls.domains[0].sans=${SUBDOMAIN}"
+
+      # HSTS Middleware, we're using an HSTS Domain
+      - "traefik.http.routers.${SITENAME}-https.middlewares=hsts-headers"
+
+      # Service
+      - "traefik.http.services.${SITENAME}-service.loadbalancer.server.port=80"
+
     networks:
       - traefik-network
 

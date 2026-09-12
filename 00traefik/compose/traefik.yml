@@ -1,0 +1,52 @@
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+        idleTimeout: 300s
+      lifeCycle:
+        graceTimeOut: 10s
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik-network
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: eddie@hashkeeper.dev
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web
+
+serversTransport:
+  maxIdleConnsPerHost: 200
+  forwardingTimeouts:
+    idleConnTimeout: 90s
+    dialTimeout: 5s
+    responseHeaderTimeout: 0s
+
+tcpServersTransport:
+  dialKeepAlive: 60s
+  dialTimeout: 30s
+
+api:
+  dashboard: true
+  insecure: true
+
+log:
+  level: INFO
+
+accessLog: {}
