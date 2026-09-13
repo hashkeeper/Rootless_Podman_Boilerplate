@@ -37,7 +37,7 @@ services:
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.middlewares=dashboard-auth,hsts-headers"
-      - "traefik.http.middlewares.dashboard-auth.basicauth.users=whodie:$$2y$$05$$zVoBvp7gKhBJDAgV6uB5AuIY9GTv.Aw0JDY7eysp.CB3BFTRXUFtC"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${ADMINCREDS}"
 
       # Security headers
       - "traefik.http.middlewares.hsts-headers.headers.customFrameOptionsValue=SAMEORIGIN"
